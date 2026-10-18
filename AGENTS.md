@@ -2,9 +2,9 @@
 
 Operating instructions for every agent (and human) writing code in this repository. **Read this before generating a single line.**
 
-This repository is a greenfield C++23 game and a hobby project with one developer: a Direct3D 12 game built on Windows with MSVC. This file is about **how code is written here** — naming, layout, build settings and the standing rules of the codebase. It is not the design: what the game *is* belongs in a design document that does not exist yet.
+This repository is a greenfield C++23 game and a hobby project with one developer: a Direct3D 12 game built on Windows with MSVC. This file is about **how code is written here** — naming, layout, build settings and the standing rules of the codebase. It is not the design: what the game *is* belongs in [`Design/MVP.md`](Design/MVP.md).
 
-**The tree is empty.** This repository holds this file, the root configuration files, `.gitignore` and `.github/` — no solution, no projects, no source. Nothing below is a target to migrate towards; it describes the code as it must be written from the first line. There is no legacy here and nothing is grandfathered, so a whole-tree run of any checker comes back clean — trivially today, and by conformance from then on.
+**The tree is empty.** This repository holds this file, the design documents under `Design/`, the root configuration files, `.gitignore` and `.github/` — no solution, no projects, no source. Nothing below is a target to migrate towards; it describes the code as it must be written from the first line. There is no legacy here and nothing is grandfathered, so a whole-tree run of any checker comes back clean — trivially today, and by conformance from then on.
 
 **Where these rules come from.** They are carried over from two sibling repositories: `Outpost.Warzone`, where the formatter and linter settings were measured against roughly 223,000 lines, and `Nomad-Commander`. That lineage is why `.clang-format` and `.clang-tidy` are what they are, and it is why code can move between the trees without a rename or a reflow pass. **What did not come across is the other trees' design, their decisions or their plan.** A decision taken there binds nothing here.
 
@@ -14,7 +14,7 @@ This repository is a greenfield C++23 game and a hobby project with one develope
 2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). **There are none yet**; numbering starts at `ADR-001` in this repository and does not continue another's.
 3. **The surrounding code** — for anything neither of the above covers, match the file you are editing.
 
-A design document, when there is one, sits alongside rather than above: it says what is built and this file says how. Until it exists there is no design authority, and a task that needs a design answer asks the owner and gets the answer written down before the code is.
+The design document, [`Design/MVP.md`](Design/MVP.md), sits alongside rather than above: it says what is built and this file says how. A task that needs a design answer it does not give asks the owner and gets the answer written down there before the code is. [`Design/PROMPT.md`](Design/PROMPT.md) condenses it for seeding a session; when the two disagree, `MVP.md` wins.
 
 If a rule here conflicts with a habit from another codebase, this file wins. If you think a rule is wrong or your task cannot be done without deviating, **say so in your report — never deviate silently.**
 
@@ -130,6 +130,7 @@ private:
 | The naming table, R1, R3, R5, R8 | [`.clang-tidy`](.clang-tidy), gated in CI over the whole tree |
 | R2 affixes, R7 file names and project registration, R11 spellings, §2 flat directories, shader names and functional filters | `Build/CheckProjectFiles.py`, gated in CI |
 | R4, R6, R9, R10 | Review. Check your own diff against the table before handing it back. |
+| R18–R29 | Review, until a test or checker can see them. R29 is also exercised by the voxel determinism tests (`Design/MVP.md` §7.10). |
 
 **Neither checker exists yet** (§6). `.clang-tidy` is configured and gates the moment there is a translation unit to run it over; `Build/CheckProjectFiles.py` has to be written, and until it is, the four rules in its row are review's problem and nothing else. A rule nobody can run is a rule that rots, so writing that checker is early work rather than housekeeping.
 
@@ -234,7 +235,35 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 
 **R17 — A string you do not write is `const`.** `/permissive-` turns on `/Zc:strictStrings`: a literal is `const char[N]` and will not bind to `char*`. The fix is `const` on the signature, never a cast at the call site — a `const_cast` here is a lie about a literal that lives in a read-only section, and writing through it is a real crash rather than a theoretical one.
 
-**R18 and up are reserved.** A design document does not only say what to build; some of what it says constrains how the code is *shaped* — which state a decision routine may read, what an emitted event has to carry with it, where tuning values live. Those are conformance rules with a design source, and they are written here as R18 onward when there is a design to cite, without renumbering anything above. Until then, do not invent one and do not import one from another tree: a rule with no source behind it is a rule nobody can settle an argument with.
+### Rules with a design source
+
+A design document does not only say what to build; some of what it says constrains how the code is *shaped* — which state a decision routine may read, what an emitted event has to carry with it, where tuning values live. Those are conformance rules with a design source. R18–R29 come from [`Design/MVP.md`](Design/MVP.md); its §13 records the source of each, and that is where an argument about one is settled.
+
+**R18 — The server decides.** Client code never decides a hit, damage, death, capture or voxel edit. It predicts and displays; the server confirms. A client-side shortcut that "just makes it feel better" is a defect unless it is a prediction the server can overrule.
+
+**R19 — A bot is a client without a socket.** Bots act only through the player command interface — move, look, fire, ability, build, repair. AI code never writes simulation state, so every bot also exercises the code paths a human uses.
+
+**R20 — Bots perceive; they do not read.** AI decision code reads the world only through the perception system: what that bot has seen or heard. The only exception is information every player has on the map — lattice, ownership, capture progress.
+
+**R21 — Tuning lives in data.** Damage, speeds, timers, costs, director bounds and flags such as friendly fire are read from data files, never written as code constants. `UPPER_CASE` constants (R3) are for engine and format limits, not for game balance.
+
+**R22 — The tick is the clock.** Simulation code reads time as a tick count, and wall-clock time is converted to ticks at one place. R6 applies: a duration is `...Ticks` in simulation code.
+
+**R23 — Nothing is two-sided.** Faction relationships go by faction id. There is no `bool` enemy flag, no `isFriendly`, and no faction count in code; the count lives in data.
+
+**R24 — Hitboxes come from replicated state,** never from animation. Animation is client-only and the server never evaluates it.
+
+**R25 — Shared simulation is shared code.** Movement, collision, weapons, voxel operations and capture rules are compiled once, in one library, linked into both client and server. A second copy "for the client" is the bug that makes prediction disagree with the server.
+
+**R26 — If it can shoot you, you can see it.** Network relevance radius ≥ render distance ≥ longest engagement range. A change to any of the three is checked against the other two.
+
+**R27 — Events carry their context.** Every gameplay event carries tick, instigator, target, factions and position, because the kill feed, the metrics, the director and debugging all read the same events.
+
+**R28 — One door into the voxel grid.** Every voxel change is an operation through one pipeline that applies, logs and replicates it. Nothing writes chunk storage directly, including tools running in-game.
+
+**R29 — The voxel core is integer.** Voxel operations are the game's deterministic core under §5: no `float` anywhere in them, fixed traversal order, no iteration over an unordered container that reaches a result, randomness only from the pinned PRNG. Client and server must arrive at the same voxels from the same operations.
+
+**R30 and up are reserved** for the next rules a design document gives, numbered on without renumbering anything above. Do not invent one and do not import one from another tree: a rule with no source behind it is a rule nobody can settle an argument with.
 
 ---
 
@@ -262,6 +291,7 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 - [ ] No project's `ConformanceMode`, `LanguageStandard`, `WarningLevel` or `TreatWarningAsError` was changed, and no warning was silenced with a pragma.
 - [ ] Debug and Release still agree on everything §3 says they must.
 - [ ] No new third-party dependency (R14).
+- [ ] The design rules R18–R29 hold — above all, nothing outside the server decides an outcome, and nothing outside the voxel operation pipeline writes voxel storage.
 - [ ] The checkers pass — or, for one not yet written, the report says which and why.
 - [ ] It builds Debug|x64, and every test suite runs and passes.
 - [ ] If it touches rendering, input, audio or presentation: it was **run**, not just built.

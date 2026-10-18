@@ -1,6 +1,6 @@
 # Earthrise — MVP Design
 
-**Status:** Draft 0.1 — 2026-10-18. Built from the owner interview of the same date; every decision below was taken by the owner unless it is listed under §12 *Open questions*, where it is a proposal awaiting an answer.
+**Status:** Draft 0.2 — 2026-10-18. Built from the owner interviews of the same date; every decision below was taken by the owner unless it is listed under §12 *Open questions*, where it is a proposal awaiting an answer.
 
 **Authority.** This document says *what* is built. [`AGENTS.md`](../AGENTS.md) says *how* code is written, and `Design/ADR/` records the engineering decisions taken while building. Where this document needs an engineering decision it names it in §11 and leaves the decision to an ADR. A task that needs a design answer this document does not give asks the owner, and the answer is written here before the code is.
 
@@ -47,19 +47,19 @@ Each row is the owner's answer and what it costs or forecloses. Numbering is per
 | D-02 | **Exactly one human, but net-ready.** All traffic goes through the client/server protocol. | A second client must be able to join from a dev command line without a code change — that is the acceptance test for "net-ready" (§9). |
 | D-03 | **Dependencies per AGENTS.md R14:** Windows SDK and MSVC standard library only, in anything that ships. | Physics, collision, navigation, netcode, UI and text are hand-written. Offline tools under `Tools/` are exempt and may use third-party code. |
 | D-04 | **The MVP proves territory + bot scale + voxel build/destroy.** | About 100 soldiers on the server; every system is sized and measured for that (§9). |
-| D-05 | **Three factions.** Player's faction plus two AI factions that also fight each other. | Nothing is two-sided: no `isEnemy` booleans, relationships by faction id, faction count in data (R-candidate C-06). |
+| D-05 | **Three factions.** Player's faction plus two AI factions that also fight each other. | Nothing is two-sided: no `isEnemy` booleans, relationships by faction id, faction count in data (R23). |
 | D-06 | **Infantry only.** | No vehicle dynamics in the MVP; the entity and input model keep a possession seam. |
 | D-07 | **Map about 2×2 km.** | One map file, no streaming. Distant bases need lower-detail meshes (§7.6). |
-| D-08 | **Three infantry classes.** | Kits proposed in §6.5; confirmation pending (O-03). |
+| D-08 | **Three infantry classes.** | Kits in §6.5 (D-30). |
 | D-09 | **Endless sandbox,** no win state. | Flow must be sustained by rules, not by a round reset (D-16), and "done" is measured by flow metrics, not by a winner (§9). |
 | D-10 | **Server-authoritative hits with lag compensation.** | Server keeps hitbox history and rewinds; projectiles simulated on the server. Client predicts its own movement and shows provisional effects only. |
 | D-11 | **Nothing persists** between sessions except settings. | No save format, no economy beyond the in-session build pool. |
 | D-12 | **Windows 11, modern GPU,** inbox D3D12 runtime only (no Agility SDK, R14). | What the inbox runtime exposes is verified on day one and recorded (ADR backlog §11). |
-| D-13 | **Stylised, self-made art.** Voxels are for buildings and, where it helps the look, parts of the environment; soldiers, weapons and later vehicles are conventional low-poly meshes, not voxels. | Two content paths: voxel blueprints for the world, meshes for everything that moves. How characters animate is open (O-13, §7.8). |
+| D-13 | **Stylised, self-made art.** Voxels are for buildings and, where it helps the look, parts of the environment; soldiers, weapons and later vehicles are conventional low-poly meshes, not voxels. | Two content paths: voxel blueprints for the world, meshes for everything that moves. Soldiers animate as rigid parts (D-40). |
 | D-14 | **Symmetric factions.** Faction differs by colour and identity only. | Map and AI balance are isolated from weapon balance. |
 | D-15 | **Autonomous allies.** The player issues no orders. | Faction AI decides objectives; a map ping is cosmetic in the MVP. |
 | D-16 | **Warpgates plus a population director.** | Each faction has an uncapturable warpgate; the director nudges the losing faction within fixed bounds (§6.10). |
-| D-17 | **Spawn at the warpgate or an owned base;** no mobile spawns. | The exact rule for a base under attack is open (O-01). |
+| D-17 | **Spawn at the warpgate or an owned base;** no mobile spawns. | A base under attack keeps its spawn until the attackers hold all its points (D-28). |
 | D-18 | **Lattice with control points,** 1–3 per base. | Capture rules in §6.4. |
 | D-19 | **First-person only.** | Own body is arms and weapon; others are full-body models. |
 | D-20 | **Voxel bases on a column heightfield.** Bases and fortifications are voxel volumes; terrain is a blocky heightfield on the same grid and is not destructible. | No caves or overhangs in terrain. One collision model for both (§7.3). |
@@ -70,6 +70,20 @@ Each row is the owner's answer and what it costs or forecloses. Numbering is per
 | D-25 | **Construction is paid from a territory-fed faction pool.** | Territory and building feed each other; the director gets an income lever. |
 | D-26 | **Unsupported voxels crumble.** | Bounded connectivity check after every edit; no rigid bodies (§7.3). |
 | D-27 | **Bots build, repair and breach.** | Bots use the voxel mechanic as fully as the human does; this is the MVP's largest AI risk (§10). |
+| D-28 | **Defenders keep a base's spawn until the attackers hold every one of its control points** (O-01). | A full sweep of the points is the decisive moment of an attack, and a defence does not have to walk in from the next base. |
+| D-29 | **Three warpgates and seven bases,** rotationally symmetric, as in §5.1 (O-02). | Seven blueprints to author: one large, three medium, three small. |
+| D-30 | **Class kits as in §6.5:** assault breaches, medic heals and revives, engineer builds, repairs and resupplies (O-03). | Each voxel job belongs to one class. No jump jets, so navigation needs no jump links beyond two-voxel ledges. |
+| D-31 | **Friendly fire from explosives only** (O-04). Grenades and breach charges hurt allies; bullets pass through them. | One human among 32 friendly bots is not teamkilled by bot aim error. It is a data flag. Bots must check a blast against nearby allies before throwing or placing. |
+| D-32 | **Modules crumble when a base changes owner** (O-05). The new owner starts from the bare shell. | Fortifying a base is a bet that it holds, so the commander weighs a module's cost against the risk of losing the base. A capture is the biggest single voxel event in the game; its remeshing and navigation rebuild are spread over several ticks. |
+| D-33 | **The tick rate starts at 30 Hz** and is settled by measurement (O-06). | Measured at M3 and M6, recorded in ADR-004. Commands carry exact fire-time view angles. |
+| D-34 | **Mid-range reference hardware** (O-07): 6-core Zen 2–class CPU, RTX 3060 / RX 6600–class GPU, 16 GB, Windows 11. | Every target in §9 is measured on it. |
+| D-35 | **Working title Earthrise, and the title is not in code** (O-08). | Namespaces, projects and binaries use neutral names, so a rename is branding, not a refactor. |
+| D-36 | **Long-term ceiling of 300–600 humans per continent server** (O-09): one multithreaded process, not a distributed one. | The MVP simulation stays single-threaded but must remain partitionable (§7.1). |
+| D-37 | **No water in the MVP map** (O-10). | The concept art's rivers become dry canyons, or wait. |
+| D-38 | **AGENTS.md updated, and R18–R29 adopted from this document** (O-11). | Code is reviewed against them from M0. §13 records where each comes from. |
+| D-39 | **Grid movement:** a one-voxel ledge is stepped automatically, a two-voxel ledge needs a jump; doorways at least 2 voxels wide and 4 high (O-12). | Hills and rubble are walkable. A blueprint that breaks the clearance rule is a content bug. |
+| D-40 | **Soldiers animate as rigid parts** (O-13): one low-poly piece per body segment, keyframed, no skinning. | No skinning code and cheap instancing; a toy-soldier look that suits the voxel world. |
+| D-41 | **Faction colours are blue, red and amber** (O-08). | The three differ in lightness as well as hue, so red–green colour blindness does not merge them, and they are not PlanetSide 2's scheme. HUD and minimap back colour up with shape. |
 
 ## 4. The game, in one session
 
@@ -85,7 +99,7 @@ There is no pause. The server is a separate process running a world that does no
 
 The map is about 2×2 km: three warpgates at the corners of a rough triangle, and seven capturable bases between them. Each faction has two bases near its warpgate, one facing each enemy, and a large neutral base sits in the centre. The layout is rotationally symmetric, so no faction starts with a better position.
 
-*This is a proposal (O-02).* The interview settled on 2×2 km; the "3–5 bases" in that question cannot give three factions a front against each other plus a contested middle, and seven is the smallest symmetric layout that can.
+Seven bases replaced the "3–5" first discussed, because fewer cannot give three factions a front against each other plus a contested middle; seven is the smallest symmetric layout that can (D-29).
 
 | Node | Start owner | Size | Points | Lattice links |
 |---|---|---|---|---|
@@ -100,13 +114,13 @@ The map is about 2×2 km: three warpgates at the corners of a rough triangle, an
 | 3·2 | Faction 3 | Small | 1 | WG-3, 2·3 |
 | C | Neutral | Large | 3 | 1·2, 2·3, 3·1 |
 
-Base `x·y` is faction *x*'s base on the front facing faction *y*. Adjacent bases sit 350–550 m apart; walking 500 m at sprint speed takes about 75 s, which is the cost of having no vehicles and is why spawn rules matter (O-01).
+Base `x·y` is faction *x*'s base on the front facing faction *y*. Adjacent bases sit 350–550 m apart; walking 500 m at sprint speed takes about 75 s, which is the cost of having no vehicles and is why spawn rules matter (D-28).
 
 ### 5.2 Terrain
 
 Terrain is a heightfield of columns on the same 0.5 m grid as the voxels: 4,000 × 4,000 columns, each with a height in 0.5 m steps and a surface material. It renders as blocks — grass tops, earth and rock sides, vertical cliffs — and collides as blocks, so what the player sees is what they walk on. It is authored offline (procedural generation plus hand edits in a tool) and shipped as content; it is not generated at runtime and does not change during play.
 
-There is no water in the MVP map, although the concept art has a river. Swimming, water rendering and water in navigation are deferred (O-10). Trees and rocks are static voxel props with simple collision and are not destructible.
+There is no water in the MVP map, although the concept art has a river. Swimming, water rendering and water in navigation are deferred (D-37). Trees and rocks are static voxel props with simple collision and are not destructible.
 
 ### 5.3 Bases
 
@@ -138,7 +152,7 @@ There is no per-voxel damage state in the MVP: an explosion either removes a vox
 
 ### 6.1 Factions
 
-Three factions, symmetric. Working names and colours are open (O-08); the concept art shows blue and red, and a third colour has to be chosen so the three stay distinguishable for colour-blind players. Faction colour is the primary readability tool in a voxel world and is used on characters, emissive strips, territory and the minimap.
+Three factions, symmetric, coloured **blue, red and amber** (D-41). Names are open (O-14). Faction colour is the primary readability tool in a voxel world and is used on characters, emissive strips, territory and the minimap. The HUD and minimap also give each faction its own shape, so colour is never the only cue.
 
 ### 6.2 Soldiers
 
@@ -146,23 +160,23 @@ Every soldier has **shields** that regenerate after a few seconds without damage
 
 A soldier killed is **downed**, not gone: they can be revived for a window (proposed 30 s) or choose to respawn at any time. A revived soldier returns with partial health.
 
-All numbers — shield, health, regeneration delay and rate, revive window, damage — are tuning data, not code (C-04). The design target is a time-to-kill of about 0.5–0.9 s for a primary weapon at medium range with accurate fire.
+All numbers — shield, health, regeneration delay and rate, revive window, damage — are tuning data, not code (R21). The design target is a time-to-kill of about 0.5–0.9 s for a primary weapon at medium range with accurate fire.
 
 ### 6.3 Spawning and the deploy screen
 
 The deploy screen shows the lattice, ownership, capture progress and the faction's build pool. The player picks a class and a spawn point: the warpgate, or an owned base. Respawn takes a fixed time (proposed 10 s), which the director may shift within bounds (§6.10).
 
-*Open (O-01):* when a base is under attack, may defenders still spawn there? The option chosen in the interview reads as "not while being captured", which would make every defence a walk from the next base and attacks unstoppable. The proposal is PlanetSide 2's rule: defenders keep spawning at the base until the attackers hold every one of its control points.
+**A base under attack** keeps its spawn for the defenders until the attackers hold every one of its control points (D-28). Losing the spawn is the decisive moment of an attack, and a full sweep of the points is what an attacking squad works toward.
 
 ### 6.4 Capture
 
 A base can be attacked only by a faction that owns a base linked to it on the lattice. A control point flips to a faction that stands on it uncontested; flip time falls as more soldiers of that faction stand on it, down to a floor (proposed 12 s with one soldier, 6 s with four or more). Any enemy presence on the point freezes it.
 
-Once an attacking faction holds a majority of a base's points, the base capture timer runs (proposed: small 90 s, medium 150 s, large 240 s), at double speed if they hold every point. If the owner regains the majority, the timer runs backwards. Progress belongs to one attacker at a time: if a second attacking faction takes the majority, the first's progress drains to zero before the second's starts. That is the three-way rule in its simplest form. When the timer completes, the base, its points and its modules change owner (module ownership on capture is O-05).
+Once an attacking faction holds a majority of a base's points, the base capture timer runs (proposed: small 90 s, medium 150 s, large 240 s), at double speed if they hold every point. If the owner regains the majority, the timer runs backwards. Progress belongs to one attacker at a time: if a second attacking faction takes the majority, the first's progress drains to zero before the second's starts. That is the three-way rule in its simplest form. When the timer completes, the base and its points change owner, and every module in the base crumbles (D-32).
 
 ### 6.5 Classes
 
-*Proposal (O-03).* Three classes, each with one primary weapon, a shared sidearm and a shared frag grenade:
+Three classes (D-30), each with one primary weapon, a shared sidearm and a shared frag grenade:
 
 **Assault** — carbine or assault rifle, and **breach charges**: placed explosives that destroy light and heavy voxels. Ability: a short overshield. Assault is the class that opens walls.
 
@@ -176,7 +190,7 @@ Class is chosen on the deploy screen or changed at a loadout terminal.
 
 ### 6.6 Movement
 
-Walk, sprint, crouch, jump. No prone — PlanetSide 2 has none. The 0.5 m voxel grid sets the shape of movement:
+Walk, sprint, crouch, jump. No prone — PlanetSide 2 has none. The 0.5 m voxel grid sets the shape of movement (D-39):
 
 A single-voxel ledge (0.5 m) is **stepped up automatically**, with the camera smoothed over the step, so hillsides and rubble are walkable without jumping. A two-voxel ledge (1.0 m) needs a jump; the jump apex is proposed at about 1.1 m. Anything higher needs stairs, a ramp or a breach.
 
@@ -188,7 +202,7 @@ There is no fall damage in the MVP.
 
 Construction happens only inside bases the faction owns, on build slots, using modules from a small library. The proposed MVP library: wall segment, bunker (cover with firing slits), ramp/stairs, and watchtower. A module is a blueprint like the base's own shell.
 
-Placing a module spends resource from the faction pool and creates a frame. The frame fills in voxel by voxel while an engineer works on it with the build tool, and the module is fully solid only when the last voxel is in. A module that has started building can be shot at and blown up like any fortification.
+Placing a module spends resource from the faction pool and creates a frame. The frame fills in voxel by voxel while an engineer works on it with the build tool, and the module is fully solid only when the last voxel is in. A module that has started building can be shot at and blown up like any fortification. When a base changes owner, every module in it crumbles and its slots are empty again (D-32): the new owner starts from the bare shell, and fortifying a base is a bet that it will hold.
 
 **Repair** restores destroyed shell or module voxels back to blueprint, faster than restoration and at a resource cost per voxel. **Restoration** is the free, slow process that runs on its own: a base that has seen no enemy damage or presence for a set time (proposed 30 s) slowly fills its missing blueprint voxels. Both work **bottom-up in a fixed order**, so that a restored voxel always has support (D-26), and neither fills a voxel that a soldier is standing in; that voxel waits.
 
@@ -208,9 +222,9 @@ Weapons fire projectiles with velocity and drop, not instant rays. Spread, bloom
 
 The server decides every hit (D-10). It simulates each projectile and tests it against hitboxes rewound to the moment the shooter saw them, capped at a maximum rewind (proposed 250 ms) to bound the advantage a high-latency shooter gets. The world is **not** rewound: projectiles collide with the voxels as they are now. A shot fired at a target through a gap that has just been sealed hits the wall; a shot through a hole just blown open goes through. This is a fairness trade-off and is written down so it is not rediscovered as a bug.
 
-Hitboxes are boxes per body part. They are computed from replicated state — position, stance, yaw, pitch — not from client animation, so the server never has to run animation to know where a body is (C-07).
+Hitboxes are boxes per body part. They are computed from replicated state — position, stance, yaw, pitch — not from client animation, so the server never has to run animation to know where a body is (R24).
 
-Friendly fire is open (O-04).
+Friendly fire comes from explosives only (D-31): grenades and breach charges hurt allies, while bullets pass through them. It is a data flag. Before throwing or placing an explosive, a bot checks that the blast will not catch allies.
 
 ### 6.10 Population director
 
@@ -226,17 +240,17 @@ It reads territory share and its trend, and moves the underdog toward advantage 
 
 ### 6.11 Bots
 
-A bot is a soldier with no socket. It produces the same command stream a client sends — move, look, fire, use ability, build, repair — and that command stream goes through exactly the code a human's does. Nothing in the AI writes simulation state directly (C-02), which means every bot is also a test of the movement, weapon and construction code.
+A bot is a soldier with no socket. It produces the same command stream a client sends — move, look, fire, use ability, build, repair — and that command stream goes through exactly the code a human's does. Nothing in the AI writes simulation state directly (R19), which means every bot is also a test of the movement, weapon and construction code.
 
 Bots are organised in three layers:
 
-The **faction commander** (about once a second) owns strategy. It reads the lattice, ownership, capture timers, the build pool and its own soldiers' positions, and chooses where to attack, what to defend, and which modules to build where. It assigns squads to objectives.
+The **faction commander** (about once a second) owns strategy. It reads the lattice, ownership, capture timers, the build pool and its own soldiers' positions, and chooses where to attack, what to defend, and which modules to build where. Modules crumble when a base falls (D-32), so it weighs a module's cost against how likely the base is to hold. It assigns squads to objectives.
 
 The **squad** (six to eight bots) carries out an objective. It routes across the map, chooses which control point or approach to take, decides whether to breach a wall or go around, and keeps engineers and medics doing their jobs.
 
 The **individual** (decisions about ten times a second; aim and movement every tick) perceives, picks targets, moves, takes cover, shoots, reloads, throws grenades, revives, resupplies, builds, repairs, and places breach charges when its squad has decided to breach. Action selection is utility-scored.
 
-Bots perceive; they do not read the world. Decision code sees only what the bot has seen or heard — enemies in a view cone with clear line of sight, gunfire and explosions within earshot — and never global truth (C-03). The exception is information every player has on the map: lattice, ownership and capture progress.
+Bots perceive; they do not read the world. Decision code sees only what the bot has seen or heard — enemies in a view cone with clear line of sight, gunfire and explosions within earshot — and never global truth (R20). The exception is information every player has on the map: lattice, ownership and capture progress.
 
 Aim is modelled on a human: reaction time, an error that closes while tracking, and a turn-rate limit. Each bot has a skill value drawn from a distribution so the population is mixed.
 
@@ -262,13 +276,15 @@ The client starts the server as a child process, passing the map, seed, bot coun
 
 The server runs with no window and no graphics. It can also be started on its own as a dedicated server, from the same binary, from the first milestone.
 
-Code divides into: an engine core used by both processes (platform, maths, containers, logging, tasks); networking used by both; the shared game simulation — movement, collision, weapons, voxel operations, capture rules — compiled once and linked into both (C-08); the renderer, audio and input, client only; AI and the director, server only. The layout of projects is ADR-001's to decide, within AGENTS.md §2 and R9.
+Code divides into: an engine core used by both processes (platform, maths, containers, logging, tasks); networking used by both; the shared game simulation — movement, collision, weapons, voxel operations, capture rules — compiled once and linked into both (R25); the renderer, audio and input, client only; AI and the director, server only. The layout of projects is ADR-001's to decide, within AGENTS.md §2 and R9. The game's title appears in none of it (D-35).
+
+**Headroom for scale.** The long-term target is 300–600 humans on one continent server (D-36): one process, multithreaded, not distributed. The MVP simulation runs on one thread, but nothing in it may be built so that it cannot be split later. That rules out any loop over all pairs of soldiers. Spatial queries go through a partition rather than a scan, relevance for a client costs in proportion to what is near it, and every system's per-tick work can be divided by region. A design that only works because there are a hundred soldiers is a defect, even if the MVP never notices it.
 
 ### 7.2 Simulation
 
-The server simulates at a fixed tick rate. The proposed starting rate is **30 Hz**; the real rate is chosen by measurement (O-06). The client renders at the display's rate, predicts its own soldier with the shared movement code, and interpolates everyone else between snapshots. Commands carry the exact view angles at the moment of firing, so aim precision does not depend on the tick rate.
+The server simulates at a fixed tick rate. It starts at **30 Hz**; the final rate is chosen by measurement at M3 and M6 and recorded in ADR-004 (D-33). The client renders at the display's rate, predicts its own soldier with the shared movement code, and interpolates everyone else between snapshots. Commands carry the exact view angles at the moment of firing, so aim precision does not depend on the tick rate.
 
-**Time is ticks.** Simulation code reads time as a tick count; wall-clock time is converted at one place (C-05).
+**Time is ticks.** Simulation code reads time as a tick count; wall-clock time is converted at one place (R22).
 
 **Space is metres**, origin at the map centre. At ±1 km a `float` resolves about 0.06 mm, and at ±4 km — a full PlanetSide-scale continent — about 0.24 mm, so no double precision or origin rebasing is needed now or later. The voxel grid uses integer coordinates. The axis convention is ADR work (§11).
 
@@ -295,7 +311,7 @@ Voxel storage is chunked in 32³ chunks with a material palette; a chunk of unif
 
 **Client to server:** one command per tick, each packet also carrying the last few commands so that a lost packet loses nothing.
 
-**Server to client:** snapshots delta-compressed against the last snapshot the client acknowledged. Every entity within a relevance radius is sent, prioritised by distance and refreshed less often as it gets further away. Line of sight is not used to filter, to avoid enemies popping in. The relevance radius must be at least the render distance, and the render distance at least the longest engagement range (C-09): if you can be shot by it, you can see it.
+**Server to client:** snapshots delta-compressed against the last snapshot the client acknowledged. Every entity within a relevance radius is sent, prioritised by distance and refreshed less often as it gets further away. Line of sight is not used to filter, to avoid enemies popping in. The relevance radius must be at least the render distance, and the render distance at least the longest engagement range (R26): if you can be shot by it, you can see it.
 
 **Voxel edits are replicated as operations.** The server applies an operation — an explosion at a voxel position with a radius and strength, a module placement, a batch of repair or restoration steps — and sends the operation, stamped with its tick, on the reliable ordered channel. The client applies the same operation to its own copy and arrives at the same voxels. An explosion that removes four hundred voxels costs about sixteen bytes. Crumbling is not sent at all: both sides compute it from the same edit. Clients send a hash of each chunk periodically; on a mismatch the server sends that chunk in full and logs it as a determinism bug. A client joining late receives every chunk that differs from its blueprint.
 
@@ -329,7 +345,7 @@ Direct3D 12 on the inbox runtime of Windows 11 (D-12). The renderer's shape — 
 
 **Lighting:** one sun with shadows, sky, distance fog, per-vertex occlusion, emissive materials with bloom — the glowing faction strips in the concept art carry identity and readability.
 
-**Characters:** a hundred soldiers on screen in the worst case, drawn instanced as low-poly meshes with lower-detail versions in the distance. They are not voxels, but they are shaded to sit in the voxel world: flat or near-flat colour and a strong faction colour. A soldier must stay visible at least out to the longest engagement range (C-09).
+**Characters:** a hundred soldiers on screen in the worst case, drawn instanced as low-poly rigid parts (D-40), with lower-detail versions in the distance. Rigid parts instance cheaply: a soldier is a dozen or so part instances, each just a transform, and there is no skinning pass. They are not voxels, but they are shaded to sit in the voxel world: flat or near-flat colour and a strong faction colour. A soldier must stay visible at least out to the longest engagement range (R26).
 
 **Shaders** are compiled into the executable (AGENTS.md §2).
 
@@ -343,13 +359,13 @@ There are two content paths, and the game reads only formats it defines for each
 
 **World content** — base blueprints, modules and voxel-styled props such as trees and rocks — is authored in a voxel editor and converted into blueprint and prop formats. Terrain is generated by a tool and edited by hand.
 
-**Moving things** — soldiers, weapons, and later vehicles — are low-poly meshes authored in a 3D modelling tool and converted into mesh and animation formats. How soldiers animate is open (O-13): a skinned mesh on a small skeleton, or rigid parts with keyframed transforms. Either way animation is client-only; the server never evaluates it (C-07).
+**Moving things** — soldiers, weapons, and later vehicles — are low-poly meshes authored in a 3D modelling tool and converted into mesh and animation formats. Soldiers animate as rigid parts: one low-poly piece per body segment, driven by keyframed transforms, with no skinning (D-40). The segments match the hitbox layout, but hitboxes are still computed from replicated state. Animation is client-only; the server never evaluates it (R24).
 
 The map file — bases, points, slots, lattice, spawns — and all tuning data are text, readable at startup and reloadable while running in development builds. Which editor and which file formats is ADR work (§11). Third-party content needs the owner's approval and carries its licence with it (AGENTS.md R14).
 
 ### 7.9 Debugging and observability
 
-There is no Dear ImGui (R14), so the MVP builds its own minimal immediate-mode debug UI: a console with variables, a network graph, server tick-time breakdown, and world overlays for navigation spans, clusters, breach edges, bot perception and decisions, chunk boundaries and remesh activity. Every gameplay event — kill, revive, capture, edit, director adjustment — is logged with tick, instigator, target, factions and position (C-10), which feeds the kill feed, the metrics in §9 and debugging alike.
+There is no Dear ImGui (R14), so the MVP builds its own minimal immediate-mode debug UI: a console with variables, a network graph, server tick-time breakdown, and world overlays for navigation spans, clusters, breach edges, bot perception and decisions, chunk boundaries and remesh activity. Every gameplay event — kill, revive, capture, edit, director adjustment — is logged with tick, instigator, target, factions and position (R27), which feeds the kill feed, the metrics in §9 and debugging alike.
 
 ### 7.10 Testing
 
@@ -363,7 +379,7 @@ Vehicles of any kind, and aircraft. Mobile spawns. Water. Destructible terrain. 
 
 ## 9. Definition of done
 
-These are targets. They are measured on the reference hardware (O-07) and recorded with how they were measured.
+These are targets. They are measured on the reference hardware (D-34: 6-core Zen 2–class CPU, RTX 3060 / RX 6600–class GPU, 16 GB, Windows 11) and recorded with how they were measured.
 
 **Play:** the player can deploy, change class, fight, die, be revived, respawn, capture and defend bases, build modules, repair, and breach — and every one of those is also done by bots without human input.
 
@@ -415,7 +431,7 @@ Each is an ADR to be written when the code that implements it is, per AGENTS.md 
 | ADR-001 | Solution and project layout | Engine core / net / shared simulation / renderer / client / server / tests; server must not link graphics |
 | ADR-002 | Server process lifecycle | Child process, port hand-off, job object, crash handling |
 | ADR-003 | Transport and reliability | Channels, packet format, conditioner |
-| ADR-004 | Tick rate | Chosen by measurement (O-06) |
+| ADR-004 | Tick rate | Starts at 30 Hz, chosen by measurement (D-33) |
 | ADR-005 | Snapshots, deltas and relevance | Tiers, priorities, budget |
 | ADR-006 | Coordinates and units | Axis convention and handedness; metres; integer voxel grid |
 | ADR-007 | Deterministic voxel core | Scope, integer rules, PRNG, hash protocol (AGENTS.md §5) |
@@ -423,48 +439,37 @@ Each is an ADR to be written when the code that implements it is, per AGENTS.md 
 | ADR-009 | D3D12 baseline on the inbox runtime | What Windows 11 exposes without the Agility SDK, verified |
 | ADR-010 | Renderer shape | Passes, anti-aliasing, scaling, window modes (R12) |
 | ADR-011 | Text and debug UI | No third-party; baked bitmap font or DirectWrite interop |
-| ADR-012 | Content formats and pipeline | Voxel editor and modelling tool; blueprint, prop, mesh, animation, map and tuning formats; character animation per O-13 |
+| ADR-012 | Content formats and pipeline | Voxel editor and modelling tool; blueprint, prop, mesh, rigid-part animation (D-40), map and tuning formats |
 | ADR-013 | Navigation representation | Spans, clusters, breach edges, update budget |
-| ADR-014 | Threading | Simulation thread, workers for meshing, navigation and perception |
+| ADR-014 | Threading | Simulation thread, workers for meshing, navigation and perception; must leave room for 300–600 humans (D-36) |
 
 ## 12. Open questions
 
-Each carries a recommendation. Answered questions move to §3 as decisions.
+Each carries a recommendation. Answered questions move to §3 as decisions and keep their number here for reference: O-01 to O-13 were answered as D-28 to D-41.
 
 | # | Question | Recommendation |
 |---|---|---|
-| O-01 | Can defenders spawn at a base under attack? | Yes, until attackers hold every point (§6.3) |
-| O-02 | Map layout | Three warpgates, seven bases, symmetric (§5.1) |
-| O-03 | Class kits | As §6.5: assault breaches, medic heals and revives, engineer builds, repairs and resupplies |
-| O-04 | Friendly fire | On, as in PlanetSide 2; bots check their line of fire. It makes grenades and charges deliberate decisions. |
-| O-05 | Modules on capture | Pass to the capturer, so attackers choose between destroying defences and inheriting them |
-| O-06 | Tick rate | Start at 30 Hz, decide by measurement (ADR-004) |
-| O-07 | Reference hardware | 6-core Zen 2–class CPU, RTX 3060 / RX 6600–class GPU, 16 GB, Windows 11 |
-| O-08 | Title, fiction, faction names and colours | Is the title *Earthrise* or *Frontier: Voxel Warfare*? Third faction colour chosen for colour-blind contrast with blue and red. |
-| O-09 | Long-term ceiling of humans per server | Decides how much threading headroom and relevance work the MVP architecture must leave room for |
-| O-10 | Water | None in the MVP map |
-| O-11 | AGENTS.md | Update the lines that say no design document exists; adopt the candidate rules in §13 as R18 onward |
-| O-12 | Movement grid rules | Automatic step-up for one voxel, jump for two, clearance 4 high and 2 wide (§6.6) |
-| O-13 | Soldier animation | Skinned low-poly meshes on a small skeleton (~25 bones), skinning hand-written in a shader. Rigid parts are cheaper but read as robotic on a human figure; authoring the animations costs about the same either way. |
+| O-14 | Faction names and the game's fiction | Not needed before M6. The working names are Faction 1–3 until then. |
+| O-15 | The module library | Wall segment, bunker, ramp/stairs, watchtower (§6.7). Confirm before M7. |
 
-## 13. Candidate conformance rules
+## 13. Conformance rules from this design
 
-AGENTS.md reserves R18 onward for rules whose source is a design document. These are the rules this document would give it, numbered here as candidates so they can be cited before they are adopted (O-11):
+AGENTS.md reserves R18 onward for rules whose source is a design document. These twelve were adopted into AGENTS.md as R18–R29 (D-38). AGENTS.md carries the rules; this table records where each one comes from. A new rule this document gives rise to is proposed here as a candidate `C-nn`, and takes the next free R number when the owner adopts it.
 
 | # | Rule | Source |
 |---|---|---|
-| C-01 | **The server decides.** Client code never decides a hit, damage, death, capture or voxel edit; it predicts and displays, and the server confirms. | D-10, §7.4 |
-| C-02 | **A bot is a client without a socket.** Bots act only through the player command interface; AI never writes simulation state. | §6.11 |
-| C-03 | **Bots perceive; they do not read.** AI decision code reads the world only through the perception system, apart from information on every player's map. | §6.11 |
-| C-04 | **Tuning lives in data.** Damage, speeds, timers, costs and director bounds are data files, never code constants. | §6.2 |
-| C-05 | **The tick is the clock.** Simulation reads time in ticks; wall time is converted at one place. | §7.2 |
-| C-06 | **Nothing is two-sided.** Faction relations go by faction id; no `bool` enemy flags and no faction count in code. | D-05 |
-| C-07 | **Hitboxes come from replicated state,** never from client animation. | §6.9 |
-| C-08 | **Shared simulation is shared code.** Movement, collision, weapons, voxel operations and capture rules are compiled once and linked into both client and server. | §7.1 |
-| C-09 | **If it can shoot you, you can see it.** Relevance radius ≥ render distance ≥ longest engagement range. | §7.4 |
-| C-10 | **Events carry their context:** tick, instigator, target, factions and position. | §7.9 |
-| C-11 | **One door into the voxel grid.** Every voxel change is an operation through one pipeline that applies, logs and replicates it; nothing writes chunk storage directly. | §7.4 |
-| C-12 | **The voxel core is integer.** No `float` in voxel operations, fixed traversal order, no unordered iteration that reaches a result. | §7.2, AGENTS.md §5 |
+| R18 | **The server decides.** Client code never decides a hit, damage, death, capture or voxel edit; it predicts and displays, and the server confirms. | D-10, §7.4 |
+| R19 | **A bot is a client without a socket.** Bots act only through the player command interface; AI never writes simulation state. | §6.11 |
+| R20 | **Bots perceive; they do not read.** AI decision code reads the world only through the perception system, apart from information on every player's map. | §6.11 |
+| R21 | **Tuning lives in data.** Damage, speeds, timers, costs and director bounds are data files, never code constants. | §6.2 |
+| R22 | **The tick is the clock.** Simulation reads time in ticks; wall time is converted at one place. | §7.2 |
+| R23 | **Nothing is two-sided.** Faction relations go by faction id; no `bool` enemy flags and no faction count in code. | D-05 |
+| R24 | **Hitboxes come from replicated state,** never from client animation. | §6.9 |
+| R25 | **Shared simulation is shared code.** Movement, collision, weapons, voxel operations and capture rules are compiled once and linked into both client and server. | §7.1 |
+| R26 | **If it can shoot you, you can see it.** Relevance radius ≥ render distance ≥ longest engagement range. | §7.4 |
+| R27 | **Events carry their context:** tick, instigator, target, factions and position. | §7.9 |
+| R28 | **One door into the voxel grid.** Every voxel change is an operation through one pipeline that applies, logs and replicates it; nothing writes chunk storage directly. | §7.4 |
+| R29 | **The voxel core is integer.** No `float` in voxel operations, fixed traversal order, no unordered iteration that reaches a result. | §7.2, AGENTS.md §5 |
 
 ## 14. Milestones
 
